@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+
+# Package manager
+.pnpm-store/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Build / output (if you add later)
+dist/
+build/
+.out/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.swp
+
+# Optional: lockfile (KEEP this for apps, ignore only for libraries)
+# pnpm-lock.yaml
+
+# Coverage (if you add testing later)
+coverage/
+
+# Cache
+.cache/
+
+# Summary
+summary.md
+
+# Agents
+.agents
