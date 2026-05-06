@@ -9,8 +9,5 @@
   },
   "dependencies": {
     "bwip-js": "^4.7.0"
-  },
-  "devDependencies": {
-    "wrangler": "^4.15.2"
   }
 }
