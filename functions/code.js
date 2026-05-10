@@ -44,13 +44,13 @@ function buildBwipOptions(data, type) {
   // Aztec Rune validation
   if (bcid === "aztecrune") {
     if (!/^\d+$/.test(text.trim())) {
-      throw new Error("Aztec Runes requires integer 0-255");
+      throw new Error("Aztec Rune requires integer 0–255");
     }
 
     const n = Number(text.trim());
 
     if (n < 0 || n > 255) {
-      throw new Error("Aztec Runes value must be between 0 and 255");
+      throw new Error("Aztec Rune value must be between 0 and 255");
     }
   }
 
@@ -65,14 +65,15 @@ function buildBwipOptions(data, type) {
   };
 }
 
-async function generateQr(data, format, ec) {
+async function generateQrSvg(data, ec) {
   const errorCorrectionLevel = String(ec || "M").toUpperCase();
 
   if (!["L", "M", "Q", "H"].includes(errorCorrectionLevel)) {
     throw new Error("Invalid QR error correction level. Use L, M, Q, or H");
   }
 
-  const options = {
+  return QRCode.toString(data, {
+    type: "svg",
     errorCorrectionLevel,
     margin: 2,
     scale: 8,
@@ -80,20 +81,7 @@ async function generateQr(data, format, ec) {
       dark: "#000000",
       light: "#FFFFFF",
     },
-  };
-
-  if (format === "png") {
-    return QRCode.toBuffer(data, options);
-  }
-
-  if (format === "svg") {
-    return QRCode.toString(data, {
-      ...options,
-      type: "svg",
-    });
-  }
-
-  throw new Error("Unsupported format. Use svg or png.");
+  });
 }
 
 export async function onRequestOptions() {
@@ -108,9 +96,7 @@ export async function onRequestGet(context) {
     const url = new URL(context.request.url);
 
     const data = url.searchParams.get("data") || "";
-
     const type = url.searchParams.get("type") || "qrcode";
-
     const format = (url.searchParams.get("format") || "svg").toLowerCase();
 
     const ec = url.searchParams.get("ec") || "M";
@@ -121,77 +107,41 @@ export async function onRequestGet(context) {
       throw new Error("Unsupported type");
     }
 
-    // QR -> dedicated QR engine
-    if (qrTypes.includes(normalizedType)) {
-      const output = await generateQr(data, format, ec);
-
-      return new Response(output, {
-        status: 200,
-        headers: {
-          ...corsHeaders(),
-
-          "Content-Type":
-            format === "svg" ? "image/svg+xml; charset=utf-8" : "image/png",
-
-          "Cache-Control": "no-store",
-
-          "Content-Disposition": `inline; filename="code.${format}"`,
-        },
-      });
+    // Cloudflare Workers-safe:
+    // only SVG supported reliably
+    if (format !== "svg") {
+      throw new Error(
+        "Only SVG format is supported on Cloudflare Pages Functions",
+      );
     }
 
-    // Micro QR + all others -> bwip-js
-    const opts = buildBwipOptions(data, type);
+    let svg;
 
-    // SVG
-    if (format === "svg") {
-      let svg = bwipjs.toSVG(opts);
+    // QR → qrcode package
+    if (qrTypes.includes(normalizedType)) {
+      svg = await generateQrSvg(data, ec);
+    }
 
+    // Everything else → bwip-js
+    else {
+      const opts = buildBwipOptions(data, type);
+
+      svg = bwipjs.toSVG(opts);
+
+      // Add white background
       svg = svg.replace(
         /<svg\b([^>]*)>/i,
         '<svg$1><rect width="100%" height="100%" fill="#ffffff"/>',
       );
-
-      return new Response(svg, {
-        status: 200,
-        headers: {
-          ...corsHeaders(),
-
-          "Content-Type": "image/svg+xml; charset=utf-8",
-
-          "Cache-Control": "no-store",
-
-          "Content-Disposition": 'inline; filename="code.svg"',
-        },
-      });
     }
 
-    // PNG
-    if (format === "png") {
-      const png = await bwipjs.toBuffer({
-        ...opts,
-        encoding: "png",
-      });
-
-      return new Response(png, {
-        status: 200,
-        headers: {
-          ...corsHeaders(),
-
-          "Content-Type": "image/png",
-
-          "Cache-Control": "no-store",
-
-          "Content-Disposition": 'inline; filename="code.png"',
-        },
-      });
-    }
-
-    return new Response("Unsupported format. Use svg or png.", {
-      status: 400,
+    return new Response(svg, {
+      status: 200,
       headers: {
         ...corsHeaders(),
-        "Content-Type": "text/plain; charset=utf-8",
+        "Content-Type": "image/svg+xml; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Content-Disposition": 'inline; filename="code.svg"',
       },
     });
   } catch (err) {
