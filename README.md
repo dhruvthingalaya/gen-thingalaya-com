@@ -1,86 +1,158 @@
 # Thingalaya Barcode Generator
 
-A lightweight, URL-driven barcode generation service powering
-**[https://gen.thingalaya.com](https://gen.thingalaya.com)**
+A lightweight, URL-driven barcode and QR generation service powering:
 
-This project combines a minimal Node.js API with a browser-based generator UI, allowing you to generate barcodes both programmatically and visually.
+**https://gen.thingalaya.com**
+
+Generate barcodes instantly from a single URL.
+
+Designed for:
+
+- Web apps
+- Payment flows
+- APIs
+- Markdown
+- Emails
+- `<img>` embeds
+- `<iframe>` embeds
+- QR-based workflows
+
+No authentication. No setup. No SDKs.
 
 ---
 
 ## Overview
 
-This repository provides:
+Thingalaya Barcode Generator allows you to generate:
 
-* **HTTP API** → Generate barcode images via URL
-* **Frontend UI** → Generate + download barcodes in-browser
-* **Embeddable output** → Works in `<img>`, `<iframe>`, Markdown, etc.
+- QR Codes
+- Payment QR Codes (UPI compatible)
+- 1D Barcodes
+- 2D Barcodes
 
-The system is designed to be:
+Output formats:
 
-* Stateless
-* Fast to integrate
-* Easily embeddable across platforms
+- SVG
+- PNG
 
----
+You can:
 
-## How It Works
+- Generate via URL
+- Embed directly into websites
+- Use inside apps
+- Download from the browser UI
+- Control QR error correction
 
-### Core Flow
-
-1. Client sends request:
-
-   ```
-   GET /code?type=...&data=...&format=...
-   ```
-2. Server:
-
-   * Validates inputs
-   * Maps barcode type
-   * Generates image via `bwip-js`
-3. Returns:
-
-   * `image/svg+xml` or `image/png`
-
-No sessions. No storage. Pure transformation.
+Everything is stateless and URL-driven.
 
 ---
 
-## API Usage
+## Base URL
 
-### Base URL
-
-```
+```txt
 https://gen.thingalaya.com
 ```
 
-### Endpoint
+---
 
-```
+## API Endpoint
+
+```txt
 GET /code
 ```
 
-### Query Parameters
+Example:
 
-| Param    | Required | Description              |
-| -------- | -------- | ------------------------ |
-| `type`   | Yes      | Barcode type             |
-| `data`   | Yes      | Data to encode           |
-| `format` | No       | `svg` (default) or `png` |
+```txt
+https://gen.thingalaya.com/code?type=qr&data=Hello
+```
+
+---
+
+## Query Parameters
+
+| Parameter | Required | Description |
+|------------|----------|-------------|
+| `type` | Yes | Barcode type |
+| `data` | Yes | Data to encode |
+| `format` | No | `svg` (default) or `png` |
+| `ec` | No | QR error correction level |
+
+---
+
+## QR Error Correction
+
+QR codes support configurable error correction.
+
+Supported values:
+
+| Level | Recovery Capacity |
+|--------|-------------------|
+| `L` | ~7% |
+| `M` | ~15% *(default)* |
+| `Q` | ~25% |
+| `H` | ~30% |
+
+Higher error correction improves scan reliability if the QR is:
+
+- Damaged
+- Printed poorly
+- Partially covered
+- Displayed on reflective surfaces
+
+Higher levels also increase QR density.
+
+The `ec` parameter applies only to:
+
+```txt
+qr
+qrcode
+```
+
+Example:
+
+```txt
+https://gen.thingalaya.com/code?type=qr&format=png&ec=H&data=Hello
+```
 
 ---
 
 ## Examples
 
-### SVG Output
+### Basic QR
 
-```
-https://gen.thingalaya.com/code?type=pdf417&data=Hello%20Thingalaya&format=svg
+```txt
+https://gen.thingalaya.com/code?type=qr&data=Hello
 ```
 
-### PNG Output
+### QR as PNG
 
+```txt
+https://gen.thingalaya.com/code?type=qr&format=png&data=Hello
 ```
-https://gen.thingalaya.com/code?type=pdf417&data=Hello%20Thingalaya&format=png
+
+### QR with High Error Correction
+
+```txt
+https://gen.thingalaya.com/code?type=qr&format=png&ec=H&data=Hello
+```
+
+### PDF417 Barcode
+
+```txt
+https://gen.thingalaya.com/code?type=pdf417&data=Hello%20Thingalaya
+```
+
+### Code128 Barcode
+
+```txt
+https://gen.thingalaya.com/code?type=code128&data=123456789
+```
+
+### UPI Payment QR
+
+```txt
+https://gen.thingalaya.com/code?type=qr&format=svg&ec=H&data=upi%3A%2F%2Fpay%3Fpa%3Dexample%40upi%26pn%3DThingalaya%26am%3D500
 ```
 
 ---
@@ -90,13 +162,15 @@ https://gen.thingalaya.com/code?type=pdf417&data=Hello%20Thingalaya&format=png
 ### HTML Image
 
 ```html
-<img src="https://gen.thingalaya.com/code?type=qr&data=Hello" />
+<img
+  src="https://gen.thingalaya.com/code?type=qr&data=Hello"
+/>
 ```
 
 ### Iframe
 
 ```html
-<iframe 
+<iframe
   src="https://gen.thingalaya.com/code?type=qr&data=Hello"
   width="300"
   height="300"
@@ -107,144 +181,116 @@ https://gen.thingalaya.com/code?type=pdf417&data=Hello%20Thingalaya&format=png
 ### Markdown
 
 ```md
-![Barcode](https://gen.thingalaya.com/code?type=qr&data=Hello)
+![QR](https://gen.thingalaya.com/code?type=qr&data=Hello)
 ```
 
 ---
 
 ## Supported Barcode Types
 
-* `qr`, `qrcode`
-* `microqr`, `microqrcode`
-* `aztec`, `azteccode`
-* `aztecrune`
-* `datamatrix`
-* `gridmatrix` (Han Xin)
-* `maxicode`
-* `pdf417`
-* `code128`
-* `ean13`
+### QR Codes
 
----
-
-## Frontend UI
-
-Accessible at:
-
-```
-/index.html
+```txt
+qr
+qrcode
+microqr
+microqrcode
 ```
 
-### Features
+### 2D Barcodes
 
-* Input data + select barcode type
-* Export as:
-
-  * SVG
-  * PNG
-  * PDF *(client-side only)*
-* Live preview
-* Auto-generation via query params
-* Clean iframe rendering mode
-
----
-
-## Important Note (PDF Support)
-
-There is a deliberate separation:
-
-* API (`/code`) → **SVG + PNG only**
-* Frontend → **SVG + PNG + PDF**
-
-PDF generation happens entirely in the browser using `jsPDF`.
-
----
-
-## Tech Stack
-
-### Backend
-
-* Node.js (no framework)
-* `bwip-js` for barcode rendering
-* Native `http` module
-
-### Frontend
-
-* Vanilla HTML/CSS/JS
-* `bwip-js` (browser build)
-* `jsPDF`
-
-### Runtime
-
-* `pnpm`
-
----
-
-## Response Behavior
-
-* `svg` → `image/svg+xml`
-* `png` → `image/png`
-* CORS enabled:
-
-  ```
-  Access-Control-Allow-Origin: *
-  ```
-* No caching:
-
-  ```
-  Cache-Control: no-store
-  ```
-
----
-
-## Run Locally
-
-```bash
-pnpm install
-PORT=5500 pnpm start
+```txt
+aztec
+azteccode
+aztecrune
+datamatrix
+gridmatrix (Han Xin)
+maxicode
+pdf417
 ```
 
-Open:
+### 1D Barcodes
 
-```
-http://127.0.0.1:5500/index.html
-```
-
-Test API:
-
-```
-http://127.0.0.1:5500/code?type=qr&data=LocalTest
+```txt
+code128
+ean13
 ```
 
 ---
 
-## Project Structure
+## Browser Generator UI
 
+A visual barcode generator is available at:
+
+```txt
+https://gen.thingalaya.com
 ```
-server.js          # API server
-index.html         # UI
-style.css          # Styling
-site.webmanifest   # PWA config
-assets/            # Icons + favicons
+
+Features include:
+
+- Live preview
+- Download as SVG
+- Download as PNG
+- Download as PDF
+- QR error correction selector
+- URL parameter auto-generation
+- Embeddable iframe mode
+
+Example:
+
+```txt
+https://gen.thingalaya.com/?type=qr&format=svg&ec=H&data=Hello
 ```
+
+---
+
+## Response Format
+
+| Format | Content Type |
+|--------|----------------|
+| `svg` | `image/svg+xml` |
+| `png` | `image/png` |
+
+---
+
+## Notes
+
+### SVG vs PNG
+
+**SVG**
+- Smaller file size
+- Infinite scaling
+- Best for web and print
+
+**PNG**
+- Fixed raster image
+- Better for some legacy systems
+- Easy image compatibility
+
+### PDF Support
+
+PDF export is available only in the browser UI.
+
+The `/code` API supports:
+
+- SVG
+- PNG
 
 ---
 
 ## Troubleshooting
 
-| Issue                  | Cause                             |
-| ---------------------- | --------------------------------- |
-| Connection refused     | Server not running                |
-| Blank image            | Invalid / unencoded data          |
-| Markdown not rendering | Platform blocking external images |
-| PDF via API fails      | Not supported (UI only)           |
+| Issue | Cause |
+|--------|-------|
+| Blank image | Invalid or unencoded data |
+| QR looks dense | High error correction level |
+| `ec` not changing output | Only supported for QR |
+| Markdown image not rendering | Platform blocks external images |
 
 ---
 
-## Design Intent
-
-This project is built around a simple principle:
+## Design Philosophy
 
 > A barcode should be generatable from a single URL.
 
-No SDKs. No auth. No friction.
+Simple. Fast. Embeddable.

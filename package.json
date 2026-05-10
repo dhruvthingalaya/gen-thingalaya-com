@@ -8,6 +8,7 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "bwip-js": "^4.7.0"
+    "bwip-js": "^4.7.0",
+    "qrcode": "^1.5.4"
   }
 }

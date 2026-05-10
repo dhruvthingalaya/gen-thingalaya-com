@@ -4,20 +4,34 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Thingalaya Barcode Generator</title>
+
     <link rel="stylesheet" href="/style.css" />
     <link rel="icon" href="/assets/favicon.ico" sizes="any" />
     <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/assets/favicon-32x32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="/assets/favicon-16x16.png"
+    />
     <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
   </head>
+
   <body>
     <main class="card">
       <h1>Barcode / QR Generator</h1>
+
       <p>
-        Inputs: <code>data</code>, <code>type</code>, <code>format</code>.
-        Supported formats: <code>png</code>, <code>svg</code>, <code>pdf</code>.
+        Inputs: <code>data</code>, <code>type</code>, <code>format</code>,
+        <code>ec</code> (QR only). Supported formats: <code>png</code>,
+        <code>svg</code>, <code>pdf</code>.
       </p>
 
       <form id="generator-form">
@@ -25,6 +39,7 @@
           <label for="data">data</label>
           <input id="data" name="data" placeholder="Text to encode" required />
         </div>
+
         <div>
           <label for="type">type</label>
           <select id="type" name="type">
@@ -40,6 +55,7 @@
             <option value="ean13">EAN13</option>
           </select>
         </div>
+
         <div>
           <label for="format">format</label>
           <select id="format" name="format">
@@ -48,6 +64,17 @@
             <option value="pdf">pdf</option>
           </select>
         </div>
+
+        <div>
+          <label for="ec">error correction</label>
+          <select id="ec" name="ec">
+            <option value="L">L (7%)</option>
+            <option value="M" selected>M (15%)</option>
+            <option value="Q">Q (25%)</option>
+            <option value="H">H (30%)</option>
+          </select>
+        </div>
+
         <div>
           <button type="submit">Generate</button>
         </div>
@@ -59,6 +86,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bwip-js/4.3.1/bwip-js-min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
     <script>
       const form = document.getElementById("generator-form");
       const preview = document.getElementById("preview");
@@ -81,32 +109,68 @@
         ean13: "ean13",
       };
 
+      const qrSupportedTypes = ["qrcode", "microqrcode"];
+
+      const ecSelect = document.getElementById("ec");
+
+      function isQrType(type) {
+        return qrSupportedTypes.includes((type || "").toLowerCase());
+      }
+
+      function updateEcUX() {
+        const selectedType = form.type.value;
+
+        const enabled = isQrType(selectedType);
+
+        ecSelect.disabled = !enabled;
+
+        if (enabled) {
+          ecSelect.title = "QR error correction level";
+          ecSelect.style.opacity = "1";
+        } else {
+          ecSelect.title =
+            "Error correction is only available for QR and Micro QR";
+          ecSelect.style.opacity = "0.6";
+        }
+      }
+
       function downloadBlob(blob, filename) {
         const url = URL.createObjectURL(blob);
+
         const a = document.createElement("a");
+
         a.href = url;
         a.download = filename;
         a.click();
+
         URL.revokeObjectURL(url);
       }
 
       function readQueryInput() {
         const p = new URLSearchParams(location.search);
-        const data = p.get("data");
-        const type = p.get("type");
-        const format = p.get("format");
-        return { data, type, format };
+
+        return {
+          data: p.get("data"),
+          type: p.get("type"),
+          format: p.get("format"),
+          ec: p.get("ec"),
+        };
       }
 
-      function buildBwipOptions(data, type) {
+      function buildBwipOptions(data, type, ec = "M") {
         const bcid = typeMap[(type || "").toLowerCase()];
-        if (!bcid)
+
+        if (!bcid) {
           throw new Error(
             "Unsupported type. Use QR, MICROQR, AZTEC, AZTECRUNES, DATAMATRIX, GRIDMATRIX, MAXICODE, PDF417, CODE128, EAN13.",
           );
+        }
 
         const text = data == null ? "" : String(data);
-        if (!text.trim()) throw new Error("Data is required.");
+
+        if (!text.trim()) {
+          throw new Error("Data is required.");
+        }
 
         if (bcid === "aztecrune") {
           if (!/^\d+$/.test(text.trim())) {
@@ -114,13 +178,15 @@
               "Aztec Runes requires a whole number from 0 to 255.",
             );
           }
+
           const n = Number(text.trim());
+
           if (n < 0 || n > 255) {
             throw new Error("Aztec Runes value must be between 0 and 255.");
           }
         }
 
-        return {
+        const options = {
           bcid,
           text,
           scale: 4,
@@ -128,95 +194,151 @@
           paddingwidth: 8,
           paddingheight: 8,
         };
+
+        // QR-only error correction
+        if (qrSupportedTypes.includes(bcid)) {
+          const normalizedEc = String(ec || "M").toUpperCase();
+
+          if (!["L", "M", "Q", "H"].includes(normalizedEc)) {
+            throw new Error(
+              "Invalid QR error correction level. Use L, M, Q, or H.",
+            );
+          }
+
+          options.eclevel = normalizedEc;
+        }
+
+        return options;
       }
 
-      async function generateCode(data, type, format) {
-        const bwipOptions = buildBwipOptions(data, type);
+      async function generateCode(data, type, format, ec) {
+        const bwipOptions = buildBwipOptions(data, type, ec);
+
         const bcid = bwipOptions.bcid;
 
         preview.innerHTML = "";
 
         if (format === "svg") {
           const svgText = bwipjs.toSVG(bwipOptions);
+
           preview.innerHTML = svgText;
+
           downloadBlob(
-            new Blob([svgText], { type: "image/svg+xml" }),
+            new Blob([svgText], {
+              type: "image/svg+xml",
+            }),
             `code-${bcid}.svg`,
           );
+
           return;
         }
 
         const canvas = document.createElement("canvas");
+
         await bwipjs.toCanvas(canvas, bwipOptions);
+
         preview.appendChild(canvas);
 
         if (format === "png") {
           canvas.toBlob((blob) => {
             downloadBlob(blob, `code-${bcid}.png`);
           }, "image/png");
+
           return;
         }
 
         if (format === "pdf") {
           const { jsPDF } = window.jspdf;
+
           const pdf = new jsPDF({
             orientation: "portrait",
             unit: "pt",
             format: "a4",
           });
+
           const imgData = canvas.toDataURL("image/png");
+
           const pageW = pdf.internal.pageSize.getWidth();
+
           const pageH = pdf.internal.pageSize.getHeight();
+
           const maxW = pageW - 80;
+
           const maxH = pageH - 80;
+
           const ratio = Math.min(maxW / canvas.width, maxH / canvas.height);
+
           const w = canvas.width * ratio;
+
           const h = canvas.height * ratio;
+
           const x = (pageW - w) / 2;
+
           const y = (pageH - h) / 2;
+
           pdf.addImage(imgData, "PNG", x, y, w, h);
+
           pdf.save(`code-${bcid}.pdf`);
+
           return;
         }
 
         throw new Error("Unsupported format. Use png, svg, or pdf.");
       }
 
-      async function renderImageOnly(data, type, format) {
-        const bwipOptions = buildBwipOptions(data, type);
+      async function renderImageOnly(data, type, format, ec) {
+        const bwipOptions = buildBwipOptions(data, type, ec);
+
         const normalizedFormat = (format || "").toLowerCase();
+
         if (!["png", "svg"].includes(normalizedFormat)) {
           throw new Error("Image-only mode supports png or svg.");
         }
 
         document.body.innerHTML = "";
-        document.body.style.margin = "0";
-        document.body.style.padding = "0";
-        document.body.style.background = "#fff";
-        document.body.style.display = "grid";
-        document.body.style.placeItems = "center";
-        document.body.style.minHeight = "100vh";
+
+        Object.assign(document.body.style, {
+          margin: "0",
+          padding: "0",
+          background: "#fff",
+          display: "grid",
+          placeItems: "center",
+          minHeight: "100vh",
+        });
 
         if (normalizedFormat === "svg") {
-          const svgText = bwipjs.toSVG(bwipOptions);
-          document.body.innerHTML = svgText;
+          document.body.innerHTML = bwipjs.toSVG(bwipOptions);
+
           return;
         }
 
         const canvas = document.createElement("canvas");
+
         await bwipjs.toCanvas(canvas, bwipOptions);
+
         document.body.appendChild(canvas);
       }
 
+      form.type.addEventListener("change", updateEcUX);
+
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
+
         const data = form.data.value.trim();
+
         const type = form.type.value.trim();
+
         const format = form.format.value.trim().toLowerCase();
+
+        const ec = form.ec.value.trim().toUpperCase();
+
         if (!data) return;
+
         status.textContent = "Generating...";
+
         try {
-          await generateCode(data, type, format);
+          await generateCode(data, type, format, ec);
+
           status.textContent = `Generated ${type.toUpperCase()} as ${format.toUpperCase()}.`;
         } catch (err) {
           status.textContent = err.message;
@@ -224,27 +346,51 @@
       });
 
       (function bootstrapFromQuery() {
-        const { data, type, format } = readQueryInput();
+        const { data, type, format, ec } = readQueryInput();
+
         const normalizedType = (type || "").toLowerCase();
+
         const normalizedFormat = (format || "").toLowerCase();
+
+        const normalizedEc = (ec || "M").toUpperCase();
+
         const embedded = window.self !== window.top;
+
         if (data) form.data.value = data;
-        if (normalizedType && typeMap[normalizedType])
+
+        if (normalizedType && typeMap[normalizedType]) {
           form.type.value = typeMap[normalizedType];
+        }
+
         if (
           normalizedFormat &&
           ["png", "svg", "pdf"].includes(normalizedFormat)
-        )
+        ) {
           form.format.value = normalizedFormat;
+        }
+
+        if (["L", "M", "Q", "H"].includes(normalizedEc)) {
+          form.ec.value = normalizedEc;
+        }
+
+        updateEcUX();
+
         if (data && normalizedType && normalizedFormat) {
           if (embedded && ["png", "svg"].includes(normalizedFormat)) {
-            renderImageOnly(data, normalizedType, normalizedFormat).catch(
-              (err) => {
-                document.body.innerHTML = `<pre style="margin:16px;font-family:monospace;white-space:pre-wrap;">${err.message}</pre>`;
-              },
-            );
+            renderImageOnly(
+              data,
+              normalizedType,
+              normalizedFormat,
+              normalizedEc,
+            ).catch((err) => {
+              document.body.innerHTML = `
+<pre style="margin:16px;font-family:monospace;white-space:pre-wrap;">${err.message}</pre>
+`;
+            });
+
             return;
           }
+
           form.requestSubmit();
         }
       })();
