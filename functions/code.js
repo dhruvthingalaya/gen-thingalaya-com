@@ -39,26 +39,30 @@ function corsHeaders() {
   };
 }
 
-function svgResponse(svg) {
+function svgResponse(svg, status = 200) {
   return new Response(svg, {
-    status: 200,
+    status,
     headers: {
       ...corsHeaders(),
       "Content-Type": "image/svg+xml; charset=utf-8",
       "Cache-Control": "no-store",
-      "Content-Disposition": 'inline; filename="code.svg"',
+
+      // browser tab name
+      "Content-Disposition": 'inline; filename="gen.thingalaya.com.svg"',
     },
   });
 }
 
-function pngResponse(buffer) {
+function pngResponse(buffer, status = 200) {
   return new Response(buffer, {
-    status: 200,
+    status,
     headers: {
       ...corsHeaders(),
       "Content-Type": "image/png",
       "Cache-Control": "no-store",
-      "Content-Disposition": 'inline; filename="code.png"',
+
+      // browser tab name
+      "Content-Disposition": 'inline; filename="gen.thingalaya.com.png"',
     },
   });
 }
@@ -91,19 +95,36 @@ function buildBwipOptions({ data, type }) {
   const text = String(data ?? "").trim();
 
   if (!text) {
-    throw new Error("Data is required");
+    throw new Error(
+      'Missing "data" parameter. Example: ?type=qrcode&data=hello',
+    );
   }
 
-  // Aztec Rune validation
+  // =================================
+  // Aztec Rune Validation
+  // =================================
   if (bcid === "aztecrune") {
     if (!/^\d+$/.test(text)) {
-      throw new Error("Aztec Rune requires integer 0-255");
+      throw new Error("Aztec Rune requires integer value 0-255");
     }
 
     const n = Number(text);
 
     if (n < 0 || n > 255) {
       throw new Error("Aztec Rune value must be between 0 and 255");
+    }
+  }
+
+  // =================================
+  // EAN13 Validation
+  // =================================
+  if (bcid === "ean13") {
+    if (!/^\d+$/.test(text)) {
+      throw new Error("EAN-13 accepts digits only");
+    }
+
+    if (text.length !== 12 && text.length !== 13) {
+      throw new Error("EAN-13 requires 12 or 13 digits");
     }
   }
 
@@ -118,6 +139,78 @@ function buildBwipOptions({ data, type }) {
   };
 }
 
+// =================================
+// ERROR IMAGE GENERATORS
+// =================================
+
+function escapeXml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function createErrorSvg(message) {
+  const safeMessage = escapeXml(message);
+
+  return `
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="220" viewBox="0 0 900 220">
+  <rect width="100%" height="100%" fill="#ffffff"/>
+
+  <text
+    x="40"
+    y="60"
+    font-size="28"
+    font-family="Arial, Helvetica, sans-serif"
+    fill="#d32f2f"
+    font-weight="bold"
+  >
+    Barcode Generator Error
+  </text>
+
+  <text
+    x="40"
+    y="110"
+    font-size="20"
+    font-family="Arial, Helvetica, sans-serif"
+    fill="#111111"
+  >
+    ${safeMessage}
+  </text>
+
+  <text
+    x="40"
+    y="170"
+    font-size="16"
+    font-family="Arial, Helvetica, sans-serif"
+    fill="#666666"
+  >
+    Check your URL parameters and try again.
+  </text>
+</svg>
+`.trim();
+}
+
+async function createErrorPng(message) {
+  return bwipjs.toBuffer({
+    bcid: "qrcode",
+
+    text: `ERROR:\n${message}`,
+
+    scale: 8,
+
+    includetext: true,
+
+    textxalign: "center",
+
+    paddingwidth: 16,
+    paddingheight: 16,
+
+    backgroundcolor: "FFFFFF",
+  });
+}
+
 export async function onRequestOptions() {
   return new Response(null, {
     status: 204,
@@ -126,27 +219,27 @@ export async function onRequestOptions() {
 }
 
 export async function onRequestGet(context) {
-  try {
-    const url = new URL(context.request.url);
+  const url = new URL(context.request.url);
 
+  const format = (url.searchParams.get("format") || "svg").toLowerCase();
+
+  try {
     const data = url.searchParams.get("data") || "";
 
     const type = url.searchParams.get("type") || "qrcode";
-
-    const format = (url.searchParams.get("format") || "svg").toLowerCase();
 
     const ec = url.searchParams.get("ec") || "M";
 
     const normalizedType = typeMap[type.toLowerCase()];
 
     if (!normalizedType) {
-      throw new Error("Unsupported type");
+      throw new Error(`Unsupported type "${type}"`);
     }
 
     const text = String(data).trim();
 
     if (!text) {
-      throw new Error("Data is required");
+      throw new Error('Missing "data" parameter');
     }
 
     // =================================
@@ -155,7 +248,7 @@ export async function onRequestGet(context) {
     if (qrTypes.includes(normalizedType)) {
       const qrOptions = getQrOptions(ec);
 
-      // SVG → qrcode
+      // SVG
       if (format === "svg") {
         const svg = await QRCode.toString(text, {
           ...qrOptions,
@@ -165,10 +258,11 @@ export async function onRequestGet(context) {
         return svgResponse(svg);
       }
 
-      // PNG → bwip-js/node
+      // PNG
       if (format === "png") {
         const png = await bwipjs.toBuffer({
           bcid: normalizedType,
+
           text,
 
           scale: 8,
@@ -180,18 +274,17 @@ export async function onRequestGet(context) {
 
           backgroundcolor: "FFFFFF",
 
-          // Proper QR error correction
           eclevel: ec.toUpperCase(),
         });
 
         return pngResponse(png);
       }
 
-      throw new Error("Unsupported format. Use svg or png.");
+      throw new Error('Unsupported format. Use "svg" or "png"');
     }
 
     // =================================
-    // Everything Else → bwip-js
+    // EVERYTHING ELSE
     // =================================
     const opts = buildBwipOptions({
       data,
@@ -217,11 +310,30 @@ export async function onRequestGet(context) {
       return pngResponse(png);
     }
 
-    throw new Error("Unsupported format. Use svg or png.");
+    throw new Error('Unsupported format. Use "svg" or "png"');
   } catch (err) {
     console.error("CODE API ERROR:", err);
 
-    return new Response(err?.message || "Bad request", {
+    const message = err?.message || "Bad request";
+
+    // =================================
+    // ERROR → SVG
+    // =================================
+    if (format === "svg") {
+      return svgResponse(createErrorSvg(message), 400);
+    }
+
+    // =================================
+    // ERROR → PNG
+    // =================================
+    if (format === "png") {
+      const png = await createErrorPng(message);
+
+      return pngResponse(png, 400);
+    }
+
+    // Fallback
+    return new Response(message, {
       status: 400,
       headers: {
         ...corsHeaders(),
