@@ -1,14 +1,17 @@
 {
-  "name": "barcode-image-server",
+  "name": "gen-thingalaya-com",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "wrangler pages dev .",
-    "deploy": "wrangler pages deploy .",
-    "start": "node server.js"
+    "deploy": "wrangler pages deploy ."
   },
   "dependencies": {
-    "bwip-js": "^4.7.0",
-    "qrcode": "^1.5.4"
+    "bwip-js": "4.10.1",
+    "qrcode": "1.5.4"
+  },
+  "devDependencies": {
+    "wrangler": "4.90.0"
   }
 }

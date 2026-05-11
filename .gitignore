@@ -1,51 +1,61 @@
+# ==========================
 # Dependencies
+# ==========================
 node_modules/
-
-# Package manager
 .pnpm-store/
 
+# ==========================
+# Wrangler / Cloudflare
+# ==========================
+.wrangler/
+
+# ==========================
 # Logs
-logs
+# ==========================
+logs/
 *.log
 npm-debug.log*
 pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Environment variables
+# ==========================
+# Environment Variables
+# ==========================
 .env
 .env.*
 !.env.example
 
-# Build / output (if you add later)
+# ==========================
+# Build Output
+# ==========================
 dist/
 build/
 .out/
+.cache/
+coverage/
 
-# OS files
+# ==========================
+# OS Files
+# ==========================
 .DS_Store
 Thumbs.db
 
-# Editor / IDE
+# ==========================
+# Editors / IDE
+# ==========================
 .vscode/
 .idea/
 
-# Temporary files
+# ==========================
+# Temp Files
+# ==========================
 *.tmp
 *.swp
 
-# Optional: lockfile (KEEP this for apps, ignore only for libraries)
-# pnpm-lock.yaml
-
-# Coverage (if you add testing later)
-coverage/
-
-# Cache
-.cache/
-
-# Summary
+# ==========================
+# Internal Project Notes
+# ==========================
 summary.md
 todo.md
-
-# Agents
 .agents

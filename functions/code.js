@@ -1,24 +1,35 @@
-import bwipjs from "bwip-js";
+import bwipjs from "bwip-js/node";
 import * as QRCode from "qrcode";
 
 const typeMap = {
+  // QR
   qr: "qrcode",
   qrcode: "qrcode",
+
+  // Micro QR
   microqr: "microqrcode",
   microqrcode: "microqrcode",
+
+  // Aztec
   aztec: "azteccode",
   azteccode: "azteccode",
+
+  // Aztec Rune
   aztecrunes: "aztecrune",
   aztecrune: "aztecrune",
+
+  // Matrix Codes
   datamatrix: "datamatrix",
   gridmatrix: "hanxin",
   maxicode: "maxicode",
   pdf417: "pdf417",
+
+  // Barcodes
   code128: "code128",
   ean13: "ean13",
 };
 
-const qrTypes = ["qrcode"];
+const qrTypes = ["qrcode", "microqrcode"];
 
 function corsHeaders() {
   return {
@@ -28,41 +39,28 @@ function corsHeaders() {
   };
 }
 
-function buildBwipOptions(data, type) {
-  const bcid = typeMap[(type || "").toLowerCase()];
+function svgResponse(svg) {
+  return new Response(svg, {
+    status: 200,
+    headers: {
+      ...corsHeaders(),
+      "Content-Type": "image/svg+xml; charset=utf-8",
+      "Cache-Control": "no-store",
+      "Content-Disposition": 'inline; filename="code.svg"',
+    },
+  });
+}
 
-  if (!bcid) {
-    throw new Error("Unsupported type");
-  }
-
-  const text = data == null ? "" : String(data);
-
-  if (!text.trim()) {
-    throw new Error("Data is required");
-  }
-
-  // Aztec Rune validation
-  if (bcid === "aztecrune") {
-    if (!/^\d+$/.test(text.trim())) {
-      throw new Error("Aztec Runes requires integer 0-255");
-    }
-
-    const n = Number(text.trim());
-
-    if (n < 0 || n > 255) {
-      throw new Error("Aztec Runes value must be between 0 and 255");
-    }
-  }
-
-  return {
-    bcid,
-    text,
-    scale: 4,
-    includetext: false,
-    paddingwidth: 8,
-    paddingheight: 8,
-    backgroundcolor: "FFFFFF",
-  };
+function pngResponse(buffer) {
+  return new Response(buffer, {
+    status: 200,
+    headers: {
+      ...corsHeaders(),
+      "Content-Type": "image/png",
+      "Cache-Control": "no-store",
+      "Content-Disposition": 'inline; filename="code.png"',
+    },
+  });
 }
 
 function getQrOptions(ec = "M") {
@@ -80,6 +78,43 @@ function getQrOptions(ec = "M") {
       dark: "#000000",
       light: "#FFFFFF",
     },
+  };
+}
+
+function buildBwipOptions({ data, type }) {
+  const bcid = typeMap[(type || "").toLowerCase()];
+
+  if (!bcid) {
+    throw new Error("Unsupported type");
+  }
+
+  const text = String(data ?? "").trim();
+
+  if (!text) {
+    throw new Error("Data is required");
+  }
+
+  // Aztec Rune validation
+  if (bcid === "aztecrune") {
+    if (!/^\d+$/.test(text)) {
+      throw new Error("Aztec Rune requires integer 0-255");
+    }
+
+    const n = Number(text);
+
+    if (n < 0 || n > 255) {
+      throw new Error("Aztec Rune value must be between 0 and 255");
+    }
+  }
+
+  return {
+    bcid,
+    text,
+    scale: 4,
+    includetext: false,
+    paddingwidth: 8,
+    paddingheight: 8,
+    backgroundcolor: "FFFFFF",
   };
 }
 
@@ -108,51 +143,60 @@ export async function onRequestGet(context) {
       throw new Error("Unsupported type");
     }
 
-    // QR CODE → qrcode package (with EC)
+    const text = String(data).trim();
+
+    if (!text) {
+      throw new Error("Data is required");
+    }
+
+    // =================================
+    // QR + MICRO QR
+    // =================================
     if (qrTypes.includes(normalizedType)) {
       const qrOptions = getQrOptions(ec);
 
-      // SVG
+      // SVG → qrcode
       if (format === "svg") {
-        const svg = await QRCode.toString(data, {
+        const svg = await QRCode.toString(text, {
           ...qrOptions,
           type: "svg",
         });
 
-        return new Response(svg, {
-          status: 200,
-          headers: {
-            ...corsHeaders(),
-            "Content-Type": "image/svg+xml; charset=utf-8",
-            "Cache-Control": "no-store",
-            "Content-Disposition": 'inline; filename="code.svg"',
-          },
-        });
+        return svgResponse(svg);
       }
 
-      // PNG
+      // PNG → bwip-js/node
       if (format === "png") {
-        const png = await QRCode.toBuffer(data, {
-          ...qrOptions,
-          type: "png",
+        const png = await bwipjs.toBuffer({
+          bcid: normalizedType,
+          text,
+
+          scale: 8,
+
+          includetext: false,
+
+          paddingwidth: 8,
+          paddingheight: 8,
+
+          backgroundcolor: "FFFFFF",
+
+          // Proper QR error correction
+          eclevel: ec.toUpperCase(),
         });
 
-        return new Response(png, {
-          status: 200,
-          headers: {
-            ...corsHeaders(),
-            "Content-Type": "image/png",
-            "Cache-Control": "no-store",
-            "Content-Disposition": 'inline; filename="code.png"',
-          },
-        });
+        return pngResponse(png);
       }
 
       throw new Error("Unsupported format. Use svg or png.");
     }
 
-    // ALL OTHER BARCODES → bwip-js
-    const opts = buildBwipOptions(data, type);
+    // =================================
+    // Everything Else → bwip-js
+    // =================================
+    const opts = buildBwipOptions({
+      data,
+      type,
+    });
 
     // SVG
     if (format === "svg") {
@@ -163,37 +207,20 @@ export async function onRequestGet(context) {
         '<svg$1><rect width="100%" height="100%" fill="#ffffff"/>',
       );
 
-      return new Response(svg, {
-        status: 200,
-        headers: {
-          ...corsHeaders(),
-          "Content-Type": "image/svg+xml; charset=utf-8",
-          "Cache-Control": "no-store",
-          "Content-Disposition": 'inline; filename="code.svg"',
-        },
-      });
+      return svgResponse(svg);
     }
 
     // PNG
     if (format === "png") {
-      const png = await bwipjs.toBuffer({
-        ...opts,
-        encoding: "png",
-      });
+      const png = await bwipjs.toBuffer(opts);
 
-      return new Response(png, {
-        status: 200,
-        headers: {
-          ...corsHeaders(),
-          "Content-Type": "image/png",
-          "Cache-Control": "no-store",
-          "Content-Disposition": 'inline; filename="code.png"',
-        },
-      });
+      return pngResponse(png);
     }
 
     throw new Error("Unsupported format. Use svg or png.");
   } catch (err) {
+    console.error("CODE API ERROR:", err);
+
     return new Response(err?.message || "Bad request", {
       status: 400,
       headers: {
