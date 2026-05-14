@@ -22,75 +22,135 @@
     />
     <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+    />
   </head>
 
   <body>
-    <main class="card">
-      <h1>Barcode / QR Generator</h1>
-
-      <p>
-        Inputs: <code>data</code>, <code>type</code>, <code>format</code>,
-        <code>ec</code> (QR only). Supported formats: <code>png</code>,
-        <code>svg</code>, <code>pdf</code>.
-      </p>
-
-      <form id="generator-form">
-        <div>
-          <label for="data">data</label>
-          <input id="data" name="data" placeholder="Text to encode" required />
+    <header class="site-header">
+      <div class="container">
+        <div class="brand">
+          <img
+            src="/assets/thingalaya-logo.svg"
+            alt="Thingalaya logo"
+            class="brand-logo"
+          />
+          <div>
+            <p class="brand-kicker">
+              <a href="https://thingalaya.com" target="_blank" rel="noopener noreferrer">Thingalaya</a>
+            </p>
+            <h1>Barcode / QR Generator</h1>
+          </div>
         </div>
-
-        <div>
-          <label for="type">type</label>
-          <select id="type" name="type">
-            <option value="qrcode">QR</option>
-            <option value="microqrcode">Micro QR</option>
-            <option value="azteccode">Aztec</option>
-            <option value="aztecrune">Aztec Runes</option>
-            <option value="datamatrix">Data Matrix</option>
-            <option value="gridmatrix">Grid Matrix (Han Xin)</option>
-            <option value="maxicode">MaxiCode</option>
-            <option value="pdf417">PDF417</option>
-            <option value="code128">CODE128</option>
-            <option value="ean13">EAN13</option>
-          </select>
+        <div class="header-actions">
+          <a
+            href="https://github.com/dhruvthingalaya/gen-thingalaya-com"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="github-btn"
+          >
+            <i class="fa-brands fa-github"></i>
+          </a>
         </div>
+      </div>
+    </header>
 
-        <div>
-          <label for="format">format</label>
-          <select id="format" name="format">
-            <option value="png">png</option>
-            <option value="svg">svg</option>
-            <option value="pdf">pdf</option>
-          </select>
-        </div>
+    <main class="site-main">
+      <section class="generator container">
+        <p>
+          Inputs: <code>data</code>, <code>type</code>, <code>format</code>,
+          <code>ec</code> (QR only). Supported formats: <code>png</code>,
+          <code>svg</code>, <code>pdf</code>.
+        </p>
 
-        <div>
-          <label for="ec">error correction</label>
-          <select id="ec" name="ec">
-            <option value="L">L (7%)</option>
-            <option value="M" selected>M (15%)</option>
-            <option value="Q">Q (25%)</option>
-            <option value="H">H (30%)</option>
-          </select>
-        </div>
+        <form id="generator-form">
+          <div class="data-field">
+            <label for="data">data</label>
+            <textarea
+              id="data"
+              name="data"
+              placeholder="Text to encode"
+              rows="3"
+              required
+            ></textarea>
+          </div>
 
-        <div>
-          <button type="submit">Generate</button>
-        </div>
-      </form>
+          <div class="control-row">
+            <div class="form-row">
+              <div>
+                <label for="type">type</label>
+                <select id="type" name="type">
+                  <option value="qrcode">QR</option>
+                  <option value="microqrcode">Micro QR</option>
+                  <option value="azteccode">Aztec</option>
+                  <option value="aztecrune">Aztec Runes</option>
+                  <option value="datamatrix">Data Matrix</option>
+                  <option value="gridmatrix">Grid Matrix (Han Xin)</option>
+                  <option value="maxicode">MaxiCode</option>
+                  <option value="pdf417">PDF417</option>
+                  <option value="code128">CODE128</option>
+                  <option value="ean13">EAN13</option>
+                </select>
+              </div>
 
-      <div id="preview">Preview appears here</div>
-      <div id="status"></div>
+              <div>
+                <label for="format">format</label>
+                <select id="format" name="format">
+                  <option value="png">png</option>
+                  <option value="svg">svg</option>
+                  <option value="pdf">pdf</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="ec">error correction</label>
+                <select id="ec" name="ec">
+                  <option value="L">L (7%)</option>
+                  <option value="M" selected>M (15%)</option>
+                  <option value="Q">Q (25%)</option>
+                  <option value="H">H (30%)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="actions">
+              <button type="submit">Generate</button>
+              <button
+                type="button"
+                id="download-btn"
+                aria-label="Download generated code"
+                title="Download generated code"
+                disabled
+              >
+                <i class="fa-solid fa-download"></i>
+              </button>
+            </div>
+          </div>
+        </form>
+
+        <div id="preview">Preview appears here</div>
+        <div id="status"></div>
+      </section>
+
+      <section class="help container prose">
+        <h2>Documentation</h2>
+        <div id="readme-preview">Loading README...</div>
+      </section>
     </main>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bwip-js/4.3.1/bwip-js-min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <script>
       const form = document.getElementById("generator-form");
       const preview = document.getElementById("preview");
       const status = document.getElementById("status");
+      const downloadBtn = document.getElementById("download-btn");
+      const readmePreview = document.getElementById("readme-preview");
+      let latestDownload = null;
 
       const typeMap = {
         qr: "qrcode",
@@ -223,12 +283,10 @@
 
           preview.innerHTML = svgText;
 
-          downloadBlob(
-            new Blob([svgText], {
-              type: "image/svg+xml",
-            }),
-            `code-${bcid}.svg`,
-          );
+          latestDownload = {
+            blob: new Blob([svgText], { type: "image/svg+xml" }),
+            filename: `code-${bcid}.svg`,
+          };
 
           return;
         }
@@ -240,9 +298,15 @@
         preview.appendChild(canvas);
 
         if (format === "png") {
-          canvas.toBlob((blob) => {
-            downloadBlob(blob, `code-${bcid}.png`);
-          }, "image/png");
+          latestDownload = await new Promise((resolve, reject) => {
+            canvas.toBlob((blob) => {
+              if (!blob) {
+                reject(new Error("Failed to prepare PNG download."));
+                return;
+              }
+              resolve({ blob, filename: `code-${bcid}.png` });
+            }, "image/png");
+          });
 
           return;
         }
@@ -278,7 +342,10 @@
 
           pdf.addImage(imgData, "PNG", x, y, w, h);
 
-          pdf.save(`code-${bcid}.pdf`);
+          latestDownload = {
+            blob: pdf.output("blob"),
+            filename: `code-${bcid}.pdf`,
+          };
 
           return;
         }
@@ -320,6 +387,10 @@
       }
 
       form.type.addEventListener("change", updateEcUX);
+      downloadBtn.addEventListener("click", () => {
+        if (!latestDownload) return;
+        downloadBlob(latestDownload.blob, latestDownload.filename);
+      });
 
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -334,12 +405,15 @@
 
         if (!data) return;
 
+        latestDownload = null;
+        downloadBtn.disabled = true;
         status.textContent = "Generating...";
 
         try {
           await generateCode(data, type, format, ec);
 
-          status.textContent = `Generated ${type.toUpperCase()} as ${format.toUpperCase()}.`;
+          downloadBtn.disabled = false;
+          status.textContent = `Generated ${type.toUpperCase()} as ${format.toUpperCase()}. Click Download to save.`;
         } catch (err) {
           status.textContent = err.message;
         }
@@ -392,6 +466,19 @@
           }
 
           form.requestSubmit();
+        }
+      })();
+
+      (async function loadReadmePreview() {
+        try {
+          const response = await fetch(
+            "https://raw.githubusercontent.com/dhruvthingalaya/gen-thingalaya-com/refs/heads/master/README.md",
+          );
+          if (!response.ok) throw new Error("Unable to load README.");
+          const markdown = await response.text();
+          readmePreview.innerHTML = marked.parse(markdown);
+        } catch (err) {
+          readmePreview.textContent = err.message;
         }
       })();
     </script>
